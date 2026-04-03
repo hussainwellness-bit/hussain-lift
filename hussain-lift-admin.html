@@ -1,0 +1,1027 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Hussain.Lift — Admin</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #080808; --card: #111; --card2: #141414; --border: #1e1e1e; --border2: #2a2a2a;
+  --accent: #c8ff00; --accent-dim: rgba(200,255,0,0.08); --accent-dim2: rgba(200,255,0,0.15);
+  --red: #ff3d3d; --red-dim: rgba(255,61,61,0.1);
+  --blue: #3d9fff; --blue-dim: rgba(61,159,255,0.1);
+  --purple: #a855f7; --purple-dim: rgba(168,85,247,0.1);
+  --text: #f2f2f2; --text2: #aaa; --text3: #555;
+  --lift: #181818; --lift2: #1e1e1e;
+  --plan-a: #3d9fff; --plan-b: #c8ff00; --plan-c: #a855f7;
+}
+body { background: var(--bg); color: var(--text); font-family: 'Syne', sans-serif; min-height: 100dvh; overflow-x: hidden; }
+
+/* LOADING */
+.loading-screen { position: fixed; inset: 0; background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 9999; gap: 16px; }
+.loading-logo { font-family: 'Bebas Neue', sans-serif; font-size: 48px; letter-spacing: 6px; }
+.loading-logo em { font-style: normal; color: var(--accent); }
+.loading-bar { width: 120px; height: 2px; background: var(--border2); border-radius: 2px; overflow: hidden; }
+.loading-bar-inner { height: 100%; width: 40%; background: var(--accent); border-radius: 2px; animation: loadbar 1.2s ease-in-out infinite; }
+@keyframes loadbar { 0% { transform: translateX(-100%); } 100% { transform: translateX(350%); } }
+
+/* AUTH */
+#authScreen { min-height: 100dvh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px 20px; }
+.auth-logo { font-family: 'Bebas Neue', sans-serif; font-size: 52px; letter-spacing: 5px; text-align: center; line-height: 1; margin-bottom: 6px; }
+.auth-logo em { font-style: normal; color: var(--accent); }
+.auth-sub { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 3px; color: var(--text3); text-transform: uppercase; text-align: center; margin-bottom: 36px; }
+.auth-box { width: 100%; max-width: 380px; background: var(--card); border: 1px solid var(--border2); border-radius: 20px; padding: 28px 24px; }
+.auth-field { margin-bottom: 14px; }
+.auth-label { font-family: 'DM Mono', monospace; font-size: 9px; letter-spacing: 2px; color: var(--text3); text-transform: uppercase; display: block; margin-bottom: 6px; }
+.auth-input { width: 100%; background: var(--lift2); border: 1px solid var(--border2); border-radius: 12px; padding: 13px 16px; color: var(--text); font-family: 'DM Mono', monospace; font-size: 14px; outline: none; transition: border-color 0.2s; -webkit-appearance: none; }
+.auth-input:focus { border-color: var(--accent); }
+.auth-btn { width: 100%; padding: 14px; background: var(--accent); color: #000; border: none; border-radius: 12px; font-family: 'DM Mono', monospace; font-size: 12px; letter-spacing: 3px; text-transform: uppercase; font-weight: 700; cursor: pointer; margin-top: 6px; transition: opacity 0.2s; }
+.auth-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.auth-error { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--red); text-align: center; margin-top: 12px; min-height: 16px; }
+
+/* LAYOUT */
+#appScreen { display: none; }
+.sidebar { position: fixed; top: 0; left: 0; width: 220px; height: 100dvh; background: var(--card); border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 24px 0; z-index: 100; }
+.sidebar-logo { font-family: 'Bebas Neue', sans-serif; font-size: 26px; letter-spacing: 3px; padding: 0 20px 24px; border-bottom: 1px solid var(--border); }
+.sidebar-logo em { font-style: normal; color: var(--accent); }
+.sidebar-logo span { font-family: 'DM Mono', monospace; font-size: 8px; letter-spacing: 2px; color: var(--text3); display: block; margin-top: 2px; text-transform: uppercase; }
+.sidebar-nav { flex: 1; padding: 16px 12px; display: flex; flex-direction: column; gap: 4px; }
+.nav-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; color: var(--text3); font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; cursor: pointer; transition: all 0.2s; border: none; background: transparent; width: 100%; text-align: left; }
+.nav-item:hover { background: var(--lift2); color: var(--text2); }
+.nav-item.active { background: var(--accent-dim2); color: var(--accent); border: 1px solid rgba(200,255,0,0.15); }
+.nav-item .nav-icon { font-size: 14px; width: 18px; text-align: center; }
+.sidebar-footer { padding: 16px 12px; border-top: 1px solid var(--border); }
+.sidebar-user { font-family: 'DM Mono', monospace; font-size: 9px; color: var(--text3); letter-spacing: 1px; padding: 0 4px; margin-bottom: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.logout-btn { width: 100%; padding: 9px 12px; background: var(--lift2); border: 1px solid var(--border2); border-radius: 8px; color: var(--text3); font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 1px; cursor: pointer; transition: all 0.2s; text-align: left; }
+.logout-btn:hover { border-color: var(--red); color: var(--red); }
+
+.main { margin-left: 220px; min-height: 100dvh; padding: 28px 28px 80px; }
+.page-header { margin-bottom: 28px; }
+.page-title { font-family: 'Bebas Neue', sans-serif; font-size: 38px; letter-spacing: 3px; line-height: 1; }
+.page-sub { font-family: 'DM Mono', monospace; font-size: 9px; color: var(--text3); letter-spacing: 2px; margin-top: 4px; text-transform: uppercase; }
+
+/* STATS CARDS */
+.stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 28px; }
+.stat-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 18px 20px; }
+.stat-label { font-family: 'DM Mono', monospace; font-size: 8px; color: var(--text3); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 8px; }
+.stat-value { font-family: 'Bebas Neue', sans-serif; font-size: 36px; letter-spacing: 1px; line-height: 1; }
+.stat-value.accent { color: var(--accent); }
+.stat-value.blue { color: var(--blue); }
+.stat-value.purple { color: var(--purple); }
+.stat-sub { font-family: 'DM Mono', monospace; font-size: 9px; color: var(--text3); margin-top: 4px; }
+
+/* CLIENTS TABLE */
+.section { background: var(--card); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; margin-bottom: 20px; }
+.section-header { display: flex; align-items: center; justify-content: space-between; padding: 18px 20px; border-bottom: 1px solid var(--border); }
+.section-title { font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 2px; }
+.btn { display: inline-flex; align-items: center; gap: 7px; padding: 9px 18px; border-radius: 100px; font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 2px; font-weight: 700; cursor: pointer; transition: all 0.2s; border: none; text-transform: uppercase; }
+.btn-accent { background: var(--accent); color: #000; }
+.btn-accent:hover { opacity: 0.85; }
+.btn-ghost { background: var(--lift2); color: var(--text2); border: 1px solid var(--border2); }
+.btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+.btn-danger { background: var(--red-dim); color: var(--red); border: 1px solid rgba(255,61,61,0.2); }
+.btn-sm { padding: 6px 12px; font-size: 9px; }
+
+.client-table { width: 100%; }
+.client-table-row { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr 120px; align-items: center; padding: 14px 20px; border-bottom: 1px solid var(--border); gap: 12px; transition: background 0.15s; }
+.client-table-row:last-child { border-bottom: none; }
+.client-table-row:hover { background: var(--lift); }
+.client-table-head { background: var(--lift); }
+.client-table-head .col-label { font-family: 'DM Mono', monospace; font-size: 8px; color: var(--text3); letter-spacing: 2px; text-transform: uppercase; }
+.client-name { font-size: 14px; font-weight: 700; }
+.client-email { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--text3); margin-top: 2px; }
+.plan-badge { display: inline-flex; align-items: center; gap: 5px; font-family: 'DM Mono', monospace; font-size: 9px; padding: 4px 10px; border-radius: 100px; font-weight: 700; }
+.plan-a { background: rgba(61,159,255,0.12); color: var(--plan-a); border: 1px solid rgba(61,159,255,0.2); }
+.plan-b { background: rgba(200,255,0,0.1); color: var(--plan-b); border: 1px solid rgba(200,255,0,0.2); }
+.plan-c { background: rgba(168,85,247,0.12); color: var(--plan-c); border: 1px solid rgba(168,85,247,0.2); }
+.billing-badge { font-family: 'DM Mono', monospace; font-size: 9px; color: var(--text3); background: var(--lift2); border: 1px solid var(--border2); padding: 3px 8px; border-radius: 5px; }
+.status-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+.status-dot.active { background: var(--accent); }
+.status-dot.inactive { background: var(--text3); }
+.status-label { font-family: 'DM Mono', monospace; font-size: 10px; }
+.action-btns { display: flex; gap: 6px; }
+.empty-state { padding: 60px 20px; text-align: center; font-family: 'DM Mono', monospace; font-size: 11px; color: var(--text3); letter-spacing: 2px; }
+
+/* MODAL */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); backdrop-filter: blur(4px); z-index: 500; display: none; align-items: center; justify-content: center; padding: 20px; }
+.modal-overlay.open { display: flex; }
+.modal { background: var(--card); border: 1px solid var(--border2); border-radius: 20px; width: 100%; max-width: 520px; max-height: 90dvh; overflow-y: auto; }
+.modal-header { display: flex; align-items: center; justify-content: space-between; padding: 20px 24px; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--card); z-index: 1; }
+.modal-title { font-family: 'Bebas Neue', sans-serif; font-size: 24px; letter-spacing: 2px; }
+.modal-close { background: var(--lift2); border: 1px solid var(--border2); border-radius: 8px; color: var(--text3); width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 14px; }
+.modal-body { padding: 20px 24px; }
+.field { margin-bottom: 16px; }
+.field-label { font-family: 'DM Mono', monospace; font-size: 9px; letter-spacing: 2px; color: var(--text3); text-transform: uppercase; display: block; margin-bottom: 6px; }
+.field-input { width: 100%; background: var(--lift2); border: 1px solid var(--border2); border-radius: 10px; padding: 11px 14px; color: var(--text); font-family: 'DM Mono', monospace; font-size: 13px; outline: none; transition: border-color 0.2s; -webkit-appearance: none; }
+.field-input:focus { border-color: var(--accent); }
+.field-select { appearance: none; cursor: pointer; }
+.field-textarea { resize: vertical; min-height: 80px; }
+.plan-selector { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.plan-option { padding: 14px 10px; border: 2px solid var(--border2); border-radius: 12px; background: var(--lift); cursor: pointer; transition: all 0.2s; text-align: center; }
+.plan-option:hover { border-color: var(--border2); background: var(--lift2); }
+.plan-option.selected-a { border-color: var(--plan-a); background: rgba(61,159,255,0.08); }
+.plan-option.selected-b { border-color: var(--plan-b); background: rgba(200,255,0,0.06); }
+.plan-option.selected-c { border-color: var(--plan-c); background: rgba(168,85,247,0.08); }
+.plan-option-name { font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 2px; }
+.plan-option-name.a { color: var(--plan-a); }
+.plan-option-name.b { color: var(--plan-b); }
+.plan-option-name.c { color: var(--plan-c); }
+.plan-option-label { font-family: 'DM Mono', monospace; font-size: 8px; color: var(--text3); letter-spacing: 1px; margin-top: 2px; }
+.plan-option-price { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--text2); margin-top: 6px; }
+.billing-selector { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.billing-option { padding: 10px 8px; border: 2px solid var(--border2); border-radius: 10px; background: var(--lift); cursor: pointer; transition: all 0.2s; text-align: center; }
+.billing-option.selected { border-color: var(--accent); background: var(--accent-dim); }
+.billing-option-name { font-family: 'DM Mono', monospace; font-size: 9px; color: var(--text2); letter-spacing: 1px; text-transform: uppercase; }
+.billing-option-price { font-family: 'Bebas Neue', sans-serif; font-size: 16px; color: var(--accent); margin-top: 3px; letter-spacing: 1px; }
+.billing-option-period { font-family: 'DM Mono', monospace; font-size: 8px; color: var(--text3); }
+.modal-footer { padding: 16px 24px; border-top: 1px solid var(--border); display: flex; gap: 10px; justify-content: flex-end; }
+.divider { height: 1px; background: var(--border); margin: 16px 0; }
+.field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+/* CLIENT DETAIL VIEW */
+.back-btn { display: inline-flex; align-items: center; gap: 8px; font-family: 'DM Mono', monospace; font-size: 10px; color: var(--text3); letter-spacing: 1.5px; cursor: pointer; margin-bottom: 20px; background: none; border: none; padding: 0; transition: color 0.2s; }
+.back-btn:hover { color: var(--accent); }
+.client-detail-header { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 24px; margin-bottom: 20px; display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
+.client-avatar { width: 56px; height: 56px; border-radius: 14px; background: var(--accent-dim2); border: 1px solid rgba(200,255,0,0.2); display: flex; align-items: center; justify-content: center; font-family: 'Bebas Neue', sans-serif; font-size: 22px; color: var(--accent); flex-shrink: 0; }
+.client-detail-info { flex: 1; }
+.client-detail-name { font-family: 'Bebas Neue', sans-serif; font-size: 32px; letter-spacing: 2px; line-height: 1; }
+.client-detail-email { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--text3); margin-top: 4px; }
+.client-detail-badges { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.detail-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* PLAN BUILDER */
+.plan-builder { background: var(--card); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }
+.plan-builder-header { padding: 18px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+.days-tabs { display: flex; gap: 6px; overflow-x: auto; padding: 14px 20px; border-bottom: 1px solid var(--border); scrollbar-width: none; }
+.days-tabs::-webkit-scrollbar { display: none; }
+.day-tab { flex-shrink: 0; padding: 8px 14px; border: 1px solid var(--border2); border-radius: 100px; background: var(--lift); color: var(--text3); font-family: 'DM Mono', monospace; font-size: 9px; letter-spacing: 2px; text-transform: uppercase; cursor: pointer; transition: all 0.2s; }
+.day-tab.active { border-color: var(--accent); color: var(--accent); background: var(--accent-dim2); }
+.day-tab.has-ex { border-color: rgba(200,255,0,0.2); color: var(--text2); }
+.plan-day-body { padding: 16px 20px; }
+.day-meta { display: flex; gap: 10px; margin-bottom: 14px; }
+.day-meta input { flex: 1; background: var(--lift2); border: 1px solid var(--border2); border-radius: 8px; padding: 9px 12px; color: var(--text); font-family: 'DM Mono', monospace; font-size: 12px; outline: none; transition: border-color 0.2s; }
+.day-meta input:focus { border-color: var(--accent); }
+.rest-toggle { display: flex; align-items: center; gap: 8px; padding: 9px 14px; background: var(--lift2); border: 1px solid var(--border2); border-radius: 8px; cursor: pointer; font-family: 'DM Mono', monospace; font-size: 10px; color: var(--text3); white-space: nowrap; transition: all 0.2s; }
+.rest-toggle.active { border-color: var(--blue); color: var(--blue); background: var(--blue-dim); }
+.ex-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+.ex-row { display: grid; grid-template-columns: 1fr 80px 80px 36px; gap: 8px; align-items: center; background: var(--lift); border: 1px solid var(--border2); border-radius: 10px; padding: 10px 12px; }
+.ex-row-name { font-size: 13px; font-weight: 600; color: var(--text); }
+.ex-row-detail { font-family: 'DM Mono', monospace; font-size: 9px; color: var(--text3); margin-top: 2px; }
+.ex-row input { background: var(--lift2); border: 1px solid var(--border2); border-radius: 8px; padding: 7px 8px; color: var(--text); font-family: 'DM Mono', monospace; font-size: 12px; outline: none; text-align: center; width: 100%; transition: border-color 0.2s; }
+.ex-row input:focus { border-color: var(--accent); }
+.remove-ex { width: 36px; height: 36px; background: var(--red-dim); border: 1px solid rgba(255,61,61,0.2); border-radius: 8px; color: var(--red); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; transition: all 0.2s; }
+.remove-ex:hover { background: rgba(255,61,61,0.2); }
+.add-exercise-row { display: flex; gap: 8px; }
+.add-exercise-row select { flex: 1; background: var(--lift2); border: 1px solid var(--border2); border-radius: 10px; padding: 10px 12px; color: var(--text2); font-family: 'DM Mono', monospace; font-size: 12px; outline: none; cursor: pointer; transition: border-color 0.2s; appearance: none; }
+.add-exercise-row select:focus { border-color: var(--accent); }
+
+/* EXERCISE LIBRARY */
+.ex-library-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; padding: 16px; }
+.ex-lib-card { background: var(--lift); border: 1px solid var(--border2); border-radius: 12px; padding: 14px; transition: border-color 0.2s; }
+.ex-lib-card:hover { border-color: var(--border2); }
+.ex-lib-name { font-size: 14px; font-weight: 700; margin-bottom: 6px; }
+.ex-lib-muscles { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
+.muscle-tag { font-family: 'DM Mono', monospace; font-size: 8px; padding: 2px 6px; border-radius: 4px; background: var(--accent-dim); color: var(--accent); }
+.ex-lib-meta { display: flex; align-items: center; justify-content: space-between; }
+.ex-lib-kind { font-family: 'DM Mono', monospace; font-size: 9px; color: var(--text3); }
+.ex-lib-actions { display: flex; gap: 6px; }
+
+/* TOAST */
+.toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--accent); color: #000; font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: 2px; font-weight: 700; padding: 12px 24px; border-radius: 100px; opacity: 0; transition: all 0.3s cubic-bezier(.2,.8,.3,1); z-index: 9999; white-space: nowrap; pointer-events: none; }
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.toast.error { background: var(--red); color: #fff; }
+
+/* MOBILE SIDEBAR */
+.mobile-header { display: none; align-items: center; justify-content: space-between; padding: 14px 16px; background: var(--card); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 99; }
+.mobile-logo { font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 3px; }
+.mobile-logo em { font-style: normal; color: var(--accent); }
+.hamburger { background: var(--lift2); border: 1px solid var(--border2); border-radius: 8px; width: 36px; height: 36px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; cursor: pointer; }
+.hamburger span { width: 16px; height: 1.5px; background: var(--text2); border-radius: 2px; }
+.sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 98; }
+
+@media (max-width: 768px) {
+  .sidebar { transform: translateX(-100%); transition: transform 0.3s; }
+  .sidebar.open { transform: translateX(0); z-index: 99; }
+  .sidebar-overlay.open { display: block; }
+  .main { margin-left: 0; padding: 16px 16px 80px; }
+  .mobile-header { display: flex; }
+  .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  .client-table-row { grid-template-columns: 1fr auto; }
+  .client-table-row .col-plan, .client-table-row .col-billing, .client-table-row .col-status, .client-table-head .col-plan, .client-table-head .col-billing, .client-table-head .col-status { display: none; }
+}
+
+/* VIEWS */
+.view { display: none; }
+.view.active { display: block; }
+.spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(0,0,0,0.2); border-top-color: #000; border-radius: 50%; animation: spin 0.6s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.info-box { background: var(--blue-dim); border: 1px solid rgba(61,159,255,0.15); border-radius: 10px; padding: 12px 14px; font-family: 'DM Mono', monospace; font-size: 10px; color: var(--blue); line-height: 1.6; margin-bottom: 16px; }
+</style>
+</head>
+<body>
+
+<!-- LOADING -->
+<div class="loading-screen" id="loadingScreen">
+  <div class="loading-logo">HUSSAIN.<em>LIFT</em></div>
+  <div class="loading-bar"><div class="loading-bar-inner"></div></div>
+</div>
+
+<!-- AUTH -->
+<div id="authScreen" style="display:none">
+  <div class="auth-logo">HUSSAIN.<em>LIFT</em></div>
+  <div class="auth-sub">// Admin Portal</div>
+  <div class="auth-box">
+    <div class="auth-field"><label class="auth-label">Email</label><input class="auth-input" type="email" id="loginEmail" placeholder="your@email.com" autocomplete="email"></div>
+    <div class="auth-field"><label class="auth-label">Password</label><input class="auth-input" type="password" id="loginPassword" placeholder="••••••••" autocomplete="current-password"></div>
+    <button class="auth-btn" id="loginBtn" onclick="handleLogin()">Login</button>
+    <div class="auth-error" id="authError"></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="appScreen" style="display:none">
+  <!-- Mobile Header -->
+  <div class="mobile-header">
+    <div class="mobile-logo">HUSSAIN.<em>LIFT</em></div>
+    <div class="hamburger" onclick="toggleSidebar()"><span></span><span></span><span></span></div>
+  </div>
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+
+  <!-- Sidebar -->
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-logo">HUSSAIN.<em>LIFT</em><span>// Admin Panel</span></div>
+    <nav class="sidebar-nav">
+      <button class="nav-item active" id="nav-dashboard" onclick="switchView('dashboard')"><span class="nav-icon">◈</span> Dashboard</button>
+      <button class="nav-item" id="nav-clients" onclick="switchView('clients')"><span class="nav-icon">◎</span> Clients</button>
+      <button class="nav-item" id="nav-exercises" onclick="switchView('exercises')"><span class="nav-icon">⊕</span> Exercise Library</button>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="sidebar-user" id="sidebarUser"></div>
+      <button class="logout-btn" onclick="handleLogout()">↩ Logout</button>
+    </div>
+  </div>
+
+  <!-- Main -->
+  <div class="main">
+
+    <!-- DASHBOARD -->
+    <div class="view active" id="view-dashboard">
+      <div class="page-header">
+        <div class="page-title">Dashboard</div>
+        <div class="page-sub">// Overview · Hussain.Lift</div>
+      </div>
+      <div class="stats-grid" id="statsGrid">
+        <div class="stat-card"><div class="stat-label">Total Clients</div><div class="stat-value accent" id="statTotal">—</div><div class="stat-sub">All accounts</div></div>
+        <div class="stat-card"><div class="stat-label">Active</div><div class="stat-value accent" id="statActive">—</div><div class="stat-sub">Currently subscribed</div></div>
+        <div class="stat-card"><div class="stat-label">Plan C</div><div class="stat-value purple" id="statC">—</div><div class="stat-sub">Ultimate clients</div></div>
+        <div class="stat-card"><div class="stat-label">Monthly Rev.</div><div class="stat-value blue" id="statRev">—</div><div class="stat-sub">SAR estimated</div></div>
+      </div>
+      <div class="section">
+        <div class="section-header">
+          <div class="section-title">Recent Clients</div>
+          <button class="btn btn-accent btn-sm" onclick="switchView('clients')">View All</button>
+        </div>
+        <div id="recentClients"><div class="empty-state">Loading...</div></div>
+      </div>
+    </div>
+
+    <!-- CLIENTS -->
+    <div class="view" id="view-clients">
+      <div class="page-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+        <div>
+          <div class="page-title">Clients</div>
+          <div class="page-sub">// Manage all client accounts & plans</div>
+        </div>
+        <button class="btn btn-accent" onclick="openAddClient()">+ Add Client</button>
+      </div>
+      <div class="section">
+        <div class="client-table">
+          <div class="client-table-row client-table-head">
+            <div class="col-label">Client</div>
+            <div class="col-label col-plan">Plan</div>
+            <div class="col-label col-billing">Billing</div>
+            <div class="col-label col-status">Status</div>
+            <div class="col-label">Expires</div>
+            <div class="col-label">Actions</div>
+          </div>
+          <div id="clientsList"><div class="empty-state">Loading...</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CLIENT DETAIL -->
+    <div class="view" id="view-client-detail">
+      <button class="back-btn" onclick="switchView('clients')">← Back to Clients</button>
+      <div id="clientDetailContent"></div>
+    </div>
+
+    <!-- EXERCISES -->
+    <div class="view" id="view-exercises">
+      <div class="page-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+        <div>
+          <div class="page-title">Exercise Library</div>
+          <div class="page-sub">// Archive of all exercises</div>
+        </div>
+        <button class="btn btn-accent" onclick="openAddExercise()">+ Add Exercise</button>
+      </div>
+      <div class="section">
+        <div class="ex-library-grid" id="exercisesList"><div class="empty-state" style="grid-column:1/-1">Loading...</div></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- MODAL: ADD/EDIT CLIENT -->
+<div class="modal-overlay" id="clientModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="clientModalTitle">Add Client</div>
+      <button class="modal-close" onclick="closeModal('clientModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="info-box" id="clientModalInfo">A signup link will be sent to the client's email. They will set their own password.</div>
+      <div class="field-row">
+        <div class="field"><label class="field-label">Full Name</label><input class="field-input" id="clientName" placeholder="Client Name"></div>
+        <div class="field"><label class="field-label">Email</label><input class="field-input" id="clientEmail" type="email" placeholder="client@email.com"></div>
+      </div>
+      <div class="field"><label class="field-label">Phone (optional)</label><input class="field-input" id="clientPhone" placeholder="+966 5xx xxx xxxx"></div>
+      <div class="divider"></div>
+      <div class="field">
+        <label class="field-label">Plan Type</label>
+        <div class="plan-selector">
+          <div class="plan-option" id="planOpt-A" onclick="selectPlan('A')">
+            <div class="plan-option-name a">A</div>
+            <div class="plan-option-label">Fixed Tracker</div>
+            <div class="plan-option-price">99 SAR/mo</div>
+          </div>
+          <div class="plan-option" id="planOpt-B" onclick="selectPlan('B')">
+            <div class="plan-option-name b">B</div>
+            <div class="plan-option-label">+ Flexible + Journal</div>
+            <div class="plan-option-price">149 SAR/mo</div>
+          </div>
+          <div class="plan-option" id="planOpt-C" onclick="selectPlan('C')">
+            <div class="plan-option-name c">C</div>
+            <div class="plan-option-label">Ultimate</div>
+            <div class="plan-option-price">279 SAR/mo</div>
+          </div>
+        </div>
+      </div>
+      <div class="field">
+        <label class="field-label">Billing Cycle</label>
+        <div class="billing-selector">
+          <div class="billing-option" id="billOpt-monthly" onclick="selectBilling('monthly')">
+            <div class="billing-option-name">Monthly</div>
+            <div class="billing-option-price" id="billPrice-monthly">—</div>
+            <div class="billing-option-period">per month</div>
+          </div>
+          <div class="billing-option" id="billOpt-semi_annual" onclick="selectBilling('semi_annual')">
+            <div class="billing-option-name">Semi-Annual</div>
+            <div class="billing-option-price" id="billPrice-semi_annual">—</div>
+            <div class="billing-option-period">every 6 months</div>
+          </div>
+          <div class="billing-option" id="billOpt-annual" onclick="selectBilling('annual')">
+            <div class="billing-option-name">Annual</div>
+            <div class="billing-option-price" id="billPrice-annual">—</div>
+            <div class="billing-option-period">per year</div>
+          </div>
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label class="field-label">Start Date</label><input class="field-input" id="clientStart" type="date"></div>
+        <div class="field"><label class="field-label">End Date</label><input class="field-input" id="clientEnd" type="date" readonly style="opacity:0.6"></div>
+      </div>
+      <div class="field"><label class="field-label">Notes (internal)</label><textarea class="field-input field-textarea" id="clientNotes" placeholder="Goals, injuries, preferences..."></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('clientModal')">Cancel</button>
+      <button class="btn btn-accent" id="clientSaveBtn" onclick="saveClient()">Save Client</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: ADD/EDIT EXERCISE -->
+<div class="modal-overlay" id="exerciseModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="exModalTitle">Add Exercise</div>
+      <button class="modal-close" onclick="closeModal('exerciseModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field"><label class="field-label">Exercise Name</label><input class="field-input" id="exName" placeholder="e.g. Chest Press"></div>
+      <div class="field">
+        <label class="field-label">Muscle Groups (comma separated)</label>
+        <input class="field-input" id="exMuscles" placeholder="e.g. Chest, Triceps, Front Delt">
+      </div>
+      <div class="field">
+        <label class="field-label">Type</label>
+        <select class="field-input field-select" id="exKind">
+          <option value="Compound">Compound</option>
+          <option value="Isolation">Isolation</option>
+        </select>
+      </div>
+      <div class="field"><label class="field-label">Video URL (YouTube or any link)</label><input class="field-input" id="exVideo" placeholder="https://youtube.com/..."></div>
+      <div class="field"><label class="field-label">Instructions (optional)</label><textarea class="field-input field-textarea" id="exInstructions" placeholder="Form cues, tips..."></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('exerciseModal')">Cancel</button>
+      <button class="btn btn-accent" id="exSaveBtn" onclick="saveExercise()">Save Exercise</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: PLAN BUILDER -->
+<div class="modal-overlay" id="planModal" style="align-items:flex-start;padding-top:20px">
+  <div class="modal" style="max-width:640px">
+    <div class="modal-header">
+      <div class="modal-title" id="planModalTitle">Build Workout Plan</div>
+      <button class="modal-close" onclick="closeModal('planModal')">✕</button>
+    </div>
+    <div class="modal-body" style="padding:0">
+      <div style="padding:16px 20px 0">
+        <div class="field"><label class="field-label">Plan Name</label><input class="field-input" id="planName" placeholder="e.g. Cutting Phase - Full Body Split"></div>
+      </div>
+      <div class="days-tabs" id="planDaysTabs"></div>
+      <div class="plan-day-body" id="planDayBody"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('planModal')">Cancel</button>
+      <button class="btn btn-accent" id="planSaveBtn" onclick="savePlan()">Save Plan</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SUPA_URL = 'https://xqkxprtxndiwcfeejoxh.supabase.co';
+const SUPA_KEY = 'sb_publishable_LdEaPotb0U0XYTMdBfEq_g_0tQcPZZG';
+const { createClient } = supabase;
+const sb = createClient(SUPA_URL, SUPA_KEY);
+
+const PRICES = {
+  A: { monthly: 99, semi_annual: 534, annual: 948 },
+  B: { monthly: 149, semi_annual: 804, annual: 1428 },
+  C: { monthly: 279, semi_annual: 1494, annual: 2628 }
+};
+const PRICE_MONTHLY = { A: { monthly:99, semi_annual:89, annual:79 }, B: { monthly:149, semi_annual:134, annual:119 }, C: { monthly:279, semi_annual:249, annual:219 } };
+const BILLING_MONTHS = { monthly: 1, semi_annual: 6, annual: 12 };
+const DAYS_OF_WEEK = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+
+let currentUser = null;
+let currentProfile = null;
+let selectedPlan = null;
+let selectedBilling = null;
+let editingClientId = null;
+let editingExId = null;
+let planClientId = null;
+let planDays = [];
+let activePlanDay = 0;
+let allExercises = [];
+let existingPlanId = null;
+
+// ── INIT ──
+async function init() {
+  const { data: { session } } = await sb.auth.getSession();
+  document.getElementById('loadingScreen').style.display = 'none';
+  if (session) {
+    currentUser = session.user;
+    await loadProfile();
+    if (currentProfile?.role === 'admin') showApp();
+    else { showAuth(); document.getElementById('authError').textContent = 'Access denied. Admin only.'; }
+  } else showAuth();
+}
+
+sb.auth.onAuthStateChange(async (event, session) => {
+  if (event === 'SIGNED_IN' && session) {
+    currentUser = session.user;
+    await loadProfile();
+    if (currentProfile?.role === 'admin') { hideAuth(); showApp(); }
+    else { await sb.auth.signOut(); document.getElementById('authError').textContent = 'Access denied. Admin only.'; }
+  } else if (event === 'SIGNED_OUT') { currentUser = null; currentProfile = null; hideApp(); showAuth(); }
+});
+
+async function loadProfile() {
+  const { data } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
+  currentProfile = data;
+}
+
+function showAuth() { document.getElementById('authScreen').style.display = 'flex'; }
+function hideAuth() { document.getElementById('authScreen').style.display = 'none'; }
+function showApp() {
+  document.getElementById('appScreen').style.display = 'block';
+  document.getElementById('sidebarUser').textContent = currentUser.email;
+  loadDashboard();
+  loadExercises();
+}
+function hideApp() { document.getElementById('appScreen').style.display = 'none'; }
+
+async function handleLogin() {
+  const email = document.getElementById('loginEmail').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  if (!email || !password) return setAuthError('Please fill in all fields');
+  const btn = document.getElementById('loginBtn');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+  const { error } = await sb.auth.signInWithPassword({ email, password });
+  btn.disabled = false; btn.textContent = 'Login';
+  if (error) setAuthError(error.message);
+}
+
+async function handleLogout() { await sb.auth.signOut(); }
+function setAuthError(msg) { document.getElementById('authError').textContent = msg; }
+
+// ── VIEWS ──
+function switchView(view) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('view-' + view)?.classList.add('active');
+  document.getElementById('nav-' + view)?.classList.add('active');
+  if (view === 'clients') loadClients();
+  if (view === 'exercises') loadExercises();
+  closeSidebar();
+}
+
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('sidebarOverlay').classList.toggle('open');
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebarOverlay').classList.remove('open');
+}
+
+// ── DASHBOARD ──
+async function loadDashboard() {
+  const { data: clients } = await sb.from('profiles').select('*').eq('role', 'client');
+  if (!clients) return;
+  const active = clients.filter(c => c.is_active);
+  const planC = clients.filter(c => c.plan_type === 'C');
+  let rev = 0;
+  active.forEach(c => { if (c.plan_type) rev += PRICE_MONTHLY[c.plan_type]?.[c.plan_billing || 'monthly'] || 0; });
+  document.getElementById('statTotal').textContent = clients.length;
+  document.getElementById('statActive').textContent = active.length;
+  document.getElementById('statC').textContent = planC.length;
+  document.getElementById('statRev').textContent = rev.toLocaleString();
+  renderClientRows(clients.slice(0, 5), 'recentClients', true);
+}
+
+// ── CLIENTS ──
+async function loadClients() {
+  document.getElementById('clientsList').innerHTML = '<div class="empty-state">Loading...</div>';
+  const { data: clients } = await sb.from('profiles').select('*').eq('role', 'client').order('created_at', { ascending: false });
+  renderClientRows(clients || [], 'clientsList', false);
+}
+
+function renderClientRows(clients, containerId, mini) {
+  const el = document.getElementById(containerId);
+  if (!clients.length) { el.innerHTML = '<div class="empty-state">// No clients yet</div>'; return; }
+  el.innerHTML = clients.map(c => {
+    const planBadge = c.plan_type ? `<span class="plan-badge plan-${c.plan_type.toLowerCase()}">Plan ${c.plan_type}</span>` : '<span style="color:var(--text3);font-family:\'DM Mono\',monospace;font-size:10px">—</span>';
+    const billingBadge = c.plan_billing ? `<span class="billing-badge">${c.plan_billing.replace('_',' ')}</span>` : '—';
+    const statusHTML = `<span class="status-dot ${c.is_active ? 'active' : 'inactive'}"></span><span class="status-label">${c.is_active ? 'Active' : 'Inactive'}</span>`;
+    const expiry = c.plan_end ? new Date(c.plan_end).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }) : '—';
+    const initials = (c.full_name || c.email || '?').slice(0, 2).toUpperCase();
+    return `
+      <div class="client-table-row">
+        <div>
+          <div class="client-name">${c.full_name || '—'}</div>
+          <div class="client-email">${c.email || ''}</div>
+        </div>
+        <div class="col-plan">${planBadge}</div>
+        <div class="col-billing">${billingBadge}</div>
+        <div class="col-status">${statusHTML}</div>
+        <div><span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text3)">${expiry}</span></div>
+        <div class="action-btns">
+          <button class="btn btn-ghost btn-sm" onclick="openClientDetail('${c.id}')">View</button>
+          ${!mini ? `<button class="btn btn-ghost btn-sm" onclick="openEditClient('${c.id}')">Edit</button>` : ''}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+// ── ADD/EDIT CLIENT ──
+function openAddClient() {
+  editingClientId = null;
+  selectedPlan = null; selectedBilling = null;
+  document.getElementById('clientModalTitle').textContent = 'Add Client';
+  document.getElementById('clientModalInfo').style.display = 'block';
+  document.getElementById('clientName').value = '';
+  document.getElementById('clientEmail').value = '';
+  document.getElementById('clientPhone').value = '';
+  document.getElementById('clientNotes').value = '';
+  document.getElementById('clientStart').value = new Date().toISOString().split('T')[0];
+  document.getElementById('clientEnd').value = '';
+  document.querySelectorAll('.plan-option').forEach(o => o.className = 'plan-option');
+  document.querySelectorAll('.billing-option').forEach(o => o.classList.remove('selected'));
+  updateBillingPrices();
+  openModal('clientModal');
+}
+
+async function openEditClient(id) {
+  const { data: c } = await sb.from('profiles').select('*').eq('id', id).single();
+  if (!c) return;
+  editingClientId = id;
+  selectedPlan = c.plan_type; selectedBilling = c.plan_billing;
+  document.getElementById('clientModalTitle').textContent = 'Edit Client';
+  document.getElementById('clientModalInfo').style.display = 'none';
+  document.getElementById('clientName').value = c.full_name || '';
+  document.getElementById('clientEmail').value = c.email || '';
+  document.getElementById('clientPhone').value = c.phone || '';
+  document.getElementById('clientNotes').value = c.notes || '';
+  document.getElementById('clientStart').value = c.plan_start || '';
+  document.getElementById('clientEnd').value = c.plan_end || '';
+  document.querySelectorAll('.plan-option').forEach(o => o.className = 'plan-option');
+  if (selectedPlan) document.getElementById('planOpt-' + selectedPlan).classList.add('selected-' + selectedPlan.toLowerCase());
+  document.querySelectorAll('.billing-option').forEach(o => o.classList.remove('selected'));
+  if (selectedBilling) document.getElementById('billOpt-' + selectedBilling)?.classList.add('selected');
+  updateBillingPrices();
+  openModal('clientModal');
+}
+
+function selectPlan(p) {
+  selectedPlan = p;
+  document.querySelectorAll('.plan-option').forEach(o => o.className = 'plan-option');
+  document.getElementById('planOpt-' + p).classList.add('selected-' + p.toLowerCase());
+  updateBillingPrices();
+  recalcEndDate();
+}
+
+function selectBilling(b) {
+  selectedBilling = b;
+  document.querySelectorAll('.billing-option').forEach(o => o.classList.remove('selected'));
+  document.getElementById('billOpt-' + b).classList.add('selected');
+  recalcEndDate();
+}
+
+function updateBillingPrices() {
+  ['monthly','semi_annual','annual'].forEach(b => {
+    const el = document.getElementById('billPrice-' + b);
+    if (selectedPlan && PRICES[selectedPlan]) {
+      el.textContent = PRICES[selectedPlan][b].toLocaleString() + ' SAR';
+    } else el.textContent = '—';
+  });
+}
+
+function recalcEndDate() {
+  const start = document.getElementById('clientStart').value;
+  if (!start || !selectedBilling) return;
+  const d = new Date(start);
+  d.setMonth(d.getMonth() + BILLING_MONTHS[selectedBilling]);
+  document.getElementById('clientEnd').value = d.toISOString().split('T')[0];
+}
+
+document.getElementById('clientStart').addEventListener('change', recalcEndDate);
+
+async function saveClient() {
+  const name = document.getElementById('clientName').value.trim();
+  const email = document.getElementById('clientEmail').value.trim();
+  if (!name || !email) return showToast('Name and email required', true);
+  if (!selectedPlan) return showToast('Select a plan', true);
+  if (!selectedBilling) return showToast('Select billing cycle', true);
+
+  const btn = document.getElementById('clientSaveBtn');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Saving...';
+
+  const payload = {
+    full_name: name,
+    email: email,
+    plan_type: selectedPlan,
+    plan_billing: selectedBilling,
+    plan_start: document.getElementById('clientStart').value || null,
+    plan_end: document.getElementById('clientEnd').value || null,
+    notes: document.getElementById('clientNotes').value.trim(),
+    is_active: true,
+    role: 'client'
+  };
+
+  let error;
+  if (editingClientId) {
+    ({ error } = await sb.from('profiles').update(payload).eq('id', editingClientId));
+  } else {
+    // Create auth user via admin invite (using signUp as workaround)
+    const { data: authData, error: authErr } = await sb.auth.admin?.createUser?.({ email, email_confirm: true }) || {};
+    // Fallback: just insert profile with a temp id note
+    const { error: insertErr } = await sb.from('profiles').insert({ ...payload, id: crypto.randomUUID() });
+    error = insertErr;
+    if (!insertErr) showToast('Client added! Share the app link so they can register with this email.');
+  }
+
+  btn.disabled = false; btn.textContent = 'Save Client';
+  if (error) { showToast('Error: ' + error.message, true); return; }
+  closeModal('clientModal');
+  showToast(editingClientId ? 'Client updated ✓' : 'Client added ✓');
+  loadClients(); loadDashboard();
+}
+
+// ── CLIENT DETAIL ──
+async function openClientDetail(id) {
+  switchView('client-detail');
+  document.getElementById('clientDetailContent').innerHTML = '<div class="empty-state">Loading...</div>';
+  const { data: c } = await sb.from('profiles').select('*').eq('id', id).single();
+  if (!c) return;
+  const { data: plans } = await sb.from('workout_plans').select('*, plan_days(*)').eq('client_id', id);
+  const plan = plans?.[0];
+  const initials = (c.full_name || c.email || '?').slice(0,2).toUpperCase();
+  const expiry = c.plan_end ? new Date(c.plan_end).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) : '—';
+
+  document.getElementById('clientDetailContent').innerHTML = `
+    <div class="client-detail-header">
+      <div style="display:flex;align-items:flex-start;gap:16px;flex:1">
+        <div class="client-avatar">${initials}</div>
+        <div class="client-detail-info">
+          <div class="client-detail-name">${c.full_name || '—'}</div>
+          <div class="client-detail-email">${c.email}</div>
+          <div class="client-detail-badges">
+            ${c.plan_type ? `<span class="plan-badge plan-${c.plan_type.toLowerCase()}">Plan ${c.plan_type}</span>` : ''}
+            ${c.plan_billing ? `<span class="billing-badge">${c.plan_billing.replace('_',' ')}</span>` : ''}
+            <span class="billing-badge">Expires: ${expiry}</span>
+            <span class="plan-badge ${c.is_active ? 'plan-b' : ''}" style="${!c.is_active ? 'background:var(--lift2);color:var(--text3);border-color:var(--border2)' : ''}">${c.is_active ? 'Active' : 'Inactive'}</span>
+          </div>
+          ${c.notes ? `<div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text3);margin-top:8px;line-height:1.6">${c.notes}</div>` : ''}
+        </div>
+      </div>
+      <div class="detail-actions">
+        <button class="btn btn-ghost btn-sm" onclick="openEditClient('${id}')">Edit Info</button>
+        <button class="btn btn-accent btn-sm" onclick="openPlanBuilder('${id}', ${plan ? `'${plan.id}'` : 'null'})">
+          ${plan ? 'Edit Plan' : '+ Build Plan'}
+        </button>
+        <button class="btn btn-danger btn-sm" onclick="toggleClientActive('${id}', ${c.is_active})">${c.is_active ? 'Deactivate' : 'Activate'}</button>
+      </div>
+    </div>
+    ${plan ? `
+    <div class="plan-builder">
+      <div class="plan-builder-header">
+        <div class="section-title">${plan.name}</div>
+        <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--text3)">${plan.plan_days?.length || 0} days configured</span>
+      </div>
+      <div style="padding:16px 20px">
+        ${(plan.plan_days || []).sort((a,b) => a.day_index - b.day_index).map(d => `
+          <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)">
+            <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--text3);width:32px">${DAYS_OF_WEEK[d.day_index].slice(0,3).toUpperCase()}</span>
+            <span style="font-size:13px;font-weight:700;flex:1">${d.day_name}</span>
+            <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--text3)">${d.focus || ''}</span>
+            ${d.is_rest ? '<span class="billing-badge">Rest</span>' : ''}
+          </div>`).join('')}
+      </div>
+    </div>` : `
+    <div class="section" style="padding:40px 20px;text-align:center">
+      <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text3);letter-spacing:2px;margin-bottom:16px">// No workout plan assigned yet</div>
+      <button class="btn btn-accent" onclick="openPlanBuilder('${id}', null)">+ Build Workout Plan</button>
+    </div>`}
+  `;
+}
+
+async function toggleClientActive(id, current) {
+  await sb.from('profiles').update({ is_active: !current }).eq('id', id);
+  showToast('Client ' + (!current ? 'activated' : 'deactivated') + ' ✓');
+  openClientDetail(id);
+  loadDashboard();
+}
+
+// ── PLAN BUILDER ──
+async function openPlanBuilder(clientId, planId) {
+  planClientId = clientId;
+  existingPlanId = planId;
+  activePlanDay = 0;
+
+  // Init 7 days
+  planDays = DAYS_OF_WEEK.map((name, i) => ({
+    day_index: i, day_name: name, focus: '', is_rest: false, exercises: []
+  }));
+
+  if (planId) {
+    // Load existing plan
+    document.getElementById('planModalTitle').textContent = 'Edit Workout Plan';
+    const { data: plan } = await sb.from('workout_plans').select('*').eq('id', planId).single();
+    if (plan) document.getElementById('planName').value = plan.name;
+    const { data: days } = await sb.from('plan_days').select('*, plan_exercises(*, exercises(*))').eq('plan_id', planId).order('day_index');
+    if (days) {
+      days.forEach(d => {
+        planDays[d.day_index] = {
+          id: d.id, day_index: d.day_index, day_name: d.day_name,
+          focus: d.focus || '', is_rest: d.is_rest,
+          exercises: (d.plan_exercises || []).sort((a,b) => a.sort_order - b.sort_order).map(pe => ({
+            id: pe.id, exercise_id: pe.exercise_id, name: pe.exercises?.name || pe.custom_name || '',
+            sets: pe.sets, reps: pe.reps, sort_order: pe.sort_order
+          }))
+        };
+      });
+    }
+  } else {
+    document.getElementById('planModalTitle').textContent = 'Build Workout Plan';
+    document.getElementById('planName').value = '';
+  }
+
+  renderPlanBuilder();
+  openModal('planModal');
+}
+
+function renderPlanBuilder() {
+  // Tabs
+  document.getElementById('planDaysTabs').innerHTML = DAYS_OF_WEEK.map((name, i) => {
+    const d = planDays[i];
+    const hasEx = d.exercises.length > 0 || d.is_rest;
+    return `<button class="day-tab ${i === activePlanDay ? 'active' : ''} ${hasEx && i !== activePlanDay ? 'has-ex' : ''}" onclick="switchPlanDay(${i})">${name.slice(0,3).toUpperCase()}</button>`;
+  }).join('');
+
+  // Body
+  const d = planDays[activePlanDay];
+  const exOptions = allExercises.map(e => `<option value="${e.id}">${e.name}</option>`).join('');
+
+  document.getElementById('planDayBody').innerHTML = `
+    <div class="day-meta">
+      <input placeholder="Day label (e.g. Chest · Legs)" value="${d.day_name}" oninput="planDays[${activePlanDay}].day_name=this.value">
+      <input placeholder="Focus (e.g. Push Day)" value="${d.focus}" oninput="planDays[${activePlanDay}].focus=this.value">
+      <div class="rest-toggle ${d.is_rest ? 'active' : ''}" onclick="toggleRestDay(${activePlanDay})">🔋 Rest</div>
+    </div>
+    ${!d.is_rest ? `
+    <div class="ex-list" id="exList">
+      ${d.exercises.map((ex, i) => `
+        <div class="ex-row">
+          <div>
+            <div class="ex-row-name">${ex.name}</div>
+            <div class="ex-row-detail">${ex.sets} sets · ${ex.reps} reps</div>
+          </div>
+          <input value="${ex.sets}" type="number" min="1" max="10" placeholder="Sets" oninput="planDays[${activePlanDay}].exercises[${i}].sets=parseInt(this.value)||3;document.querySelector('#exList .ex-row:nth-child(${i+1}) .ex-row-detail').textContent=planDays[${activePlanDay}].exercises[${i}].sets+' sets · '+planDays[${activePlanDay}].exercises[${i}].reps+' reps'">
+          <input value="${ex.reps}" placeholder="Reps" oninput="planDays[${activePlanDay}].exercises[${i}].reps=this.value">
+          <button class="remove-ex" onclick="removeExFromDay(${activePlanDay},${i})">✕</button>
+        </div>`).join('')}
+    </div>
+    <div class="add-exercise-row">
+      <select id="exPicker"><option value="">— Add exercise —</option>${exOptions}</select>
+      <button class="btn btn-ghost btn-sm" onclick="addExToDay(${activePlanDay})">Add</button>
+    </div>` : `<div style="padding:30px;text-align:center;font-family:'DM Mono',monospace;font-size:11px;color:var(--text3)">🔋 Rest Day</div>`}
+  `;
+}
+
+function switchPlanDay(i) { activePlanDay = i; renderPlanBuilder(); }
+
+function toggleRestDay(i) {
+  planDays[i].is_rest = !planDays[i].is_rest;
+  if (planDays[i].is_rest) planDays[i].exercises = [];
+  renderPlanBuilder();
+}
+
+function addExToDay(dayIdx) {
+  const sel = document.getElementById('exPicker');
+  const exId = sel.value;
+  if (!exId) return;
+  const ex = allExercises.find(e => e.id === exId);
+  if (!ex) return;
+  planDays[dayIdx].exercises.push({ exercise_id: exId, name: ex.name, sets: 3, reps: '8-10', sort_order: planDays[dayIdx].exercises.length });
+  renderPlanBuilder();
+}
+
+function removeExFromDay(dayIdx, exIdx) {
+  planDays[dayIdx].exercises.splice(exIdx, 1);
+  renderPlanBuilder();
+}
+
+async function savePlan() {
+  const name = document.getElementById('planName').value.trim();
+  if (!name) return showToast('Enter a plan name', true);
+  const btn = document.getElementById('planSaveBtn');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Saving...';
+
+  try {
+    let planId = existingPlanId;
+
+    if (!planId) {
+      const { data: plan, error } = await sb.from('workout_plans').insert({
+        client_id: planClientId, name, created_by: currentUser.id
+      }).select().single();
+      if (error) throw error;
+      planId = plan.id;
+    } else {
+      await sb.from('workout_plans').update({ name, updated_at: new Date().toISOString() }).eq('id', planId);
+      await sb.from('plan_days').delete().eq('plan_id', planId);
+    }
+
+    for (const d of planDays) {
+      const { data: dayData, error: dayErr } = await sb.from('plan_days').insert({
+        plan_id: planId, day_index: d.day_index, day_name: d.day_name,
+        focus: d.focus, is_rest: d.is_rest, sort_order: d.day_index
+      }).select().single();
+      if (dayErr) throw dayErr;
+
+      if (!d.is_rest && d.exercises.length > 0) {
+        const exRows = d.exercises.map((ex, i) => ({
+          day_id: dayData.id, exercise_id: ex.exercise_id,
+          sets: ex.sets || 3, reps: ex.reps || '8-10', sort_order: i
+        }));
+        const { error: exErr } = await sb.from('plan_exercises').insert(exRows);
+        if (exErr) throw exErr;
+      }
+    }
+
+    btn.disabled = false; btn.textContent = 'Save Plan';
+    closeModal('planModal');
+    showToast('Plan saved ✓');
+    openClientDetail(planClientId);
+  } catch (e) {
+    btn.disabled = false; btn.textContent = 'Save Plan';
+    showToast('Error: ' + e.message, true);
+  }
+}
+
+// ── EXERCISES ──
+async function loadExercises() {
+  const { data } = await sb.from('exercises').select('*').order('name');
+  allExercises = data || [];
+  renderExercises();
+}
+
+function renderExercises() {
+  const el = document.getElementById('exercisesList');
+  if (!allExercises.length) { el.innerHTML = '<div class="empty-state" style="grid-column:1/-1">// No exercises yet — add your first one</div>'; return; }
+  el.innerHTML = allExercises.map(ex => `
+    <div class="ex-lib-card">
+      <div class="ex-lib-name">${ex.name}</div>
+      <div class="ex-lib-muscles">${(ex.muscle_groups || []).map(m => `<span class="muscle-tag">${m}</span>`).join('')}</div>
+      <div class="ex-lib-meta">
+        <span class="ex-lib-kind">${ex.kind || '—'}</span>
+        <div class="ex-lib-actions">
+          ${ex.video_url ? `<a href="${ex.video_url}" target="_blank" class="btn btn-ghost btn-sm">▶ Video</a>` : ''}
+          <button class="btn btn-ghost btn-sm" onclick="openEditExercise('${ex.id}')">Edit</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteExercise('${ex.id}')">✕</button>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function openAddExercise() {
+  editingExId = null;
+  document.getElementById('exModalTitle').textContent = 'Add Exercise';
+  document.getElementById('exName').value = '';
+  document.getElementById('exMuscles').value = '';
+  document.getElementById('exKind').value = 'Compound';
+  document.getElementById('exVideo').value = '';
+  document.getElementById('exInstructions').value = '';
+  openModal('exerciseModal');
+}
+
+function openEditExercise(id) {
+  const ex = allExercises.find(e => e.id === id);
+  if (!ex) return;
+  editingExId = id;
+  document.getElementById('exModalTitle').textContent = 'Edit Exercise';
+  document.getElementById('exName').value = ex.name;
+  document.getElementById('exMuscles').value = (ex.muscle_groups || []).join(', ');
+  document.getElementById('exKind').value = ex.kind || 'Compound';
+  document.getElementById('exVideo').value = ex.video_url || '';
+  document.getElementById('exInstructions').value = ex.instructions || '';
+  openModal('exerciseModal');
+}
+
+async function saveExercise() {
+  const name = document.getElementById('exName').value.trim();
+  if (!name) return showToast('Exercise name required', true);
+  const btn = document.getElementById('exSaveBtn');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+
+  const payload = {
+    name,
+    muscle_groups: document.getElementById('exMuscles').value.split(',').map(s => s.trim()).filter(Boolean),
+    kind: document.getElementById('exKind').value,
+    video_url: document.getElementById('exVideo').value.trim() || null,
+    instructions: document.getElementById('exInstructions').value.trim() || null
+  };
+
+  let error;
+  if (editingExId) ({ error } = await sb.from('exercises').update(payload).eq('id', editingExId));
+  else ({ error } = await sb.from('exercises').insert(payload));
+
+  btn.disabled = false; btn.textContent = 'Save Exercise';
+  if (error) { showToast('Error: ' + error.message, true); return; }
+  closeModal('exerciseModal');
+  showToast(editingExId ? 'Exercise updated ✓' : 'Exercise added ✓');
+  await loadExercises();
+}
+
+async function deleteExercise(id) {
+  if (!confirm('Delete this exercise?')) return;
+  await sb.from('exercises').delete().eq('id', id);
+  showToast('Deleted ✓');
+  await loadExercises();
+}
+
+// ── MODAL ──
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-overlay').forEach(m => m.addEventListener('click', e => { if (e.target === m) m.classList.remove('open'); }));
+
+// ── TOAST ──
+function showToast(msg, isError) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'toast' + (isError ? ' error' : '');
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+init();
+</script>
+</body>
+</html>
