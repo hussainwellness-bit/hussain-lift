@@ -528,8 +528,27 @@ sb.auth.onAuthStateChange(async (event, session) => {
 });
 
 async function loadProfile() {
-  const { data } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
-  currentProfile = data;
+  try {
+    const timer = new Promise(res => setTimeout(() => res({data: null}), 4000));
+    const {data} = await Promise.race([
+      sb.from('profiles').select('*').eq('id', currentUser.id).single(),
+      timer
+    ]);
+    currentProfile = data;
+    // If no profile found, create one
+    if (!currentProfile) {
+      await sb.from('profiles').upsert({
+        id: currentUser.id,
+        email: currentUser.email,
+        role: currentUser.email === 'hussainmoh.wellness@gmail.com' ? 'admin' : 'client',
+        full_name: ''
+      });
+      currentProfile = { role: currentUser.email === 'hussainmoh.wellness@gmail.com' ? 'admin' : 'client' };
+    }
+  } catch(e) {
+    // Fallback: check if admin by email
+    currentProfile = { role: currentUser.email === 'hussainmoh.wellness@gmail.com' ? 'admin' : 'client' };
+  }
 }
 
 function showAuth() { document.getElementById('loadingScreen').style.display = 'none'; document.getElementById('authScreen').style.display = 'flex'; }
