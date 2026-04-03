@@ -460,7 +460,14 @@ body { background: var(--bg); color: var(--text); font-family: 'Syne', sans-seri
 const SUPA_URL = 'https://xqkxprtxndiwcfeejoxh.supabase.co';
 const SUPA_KEY = 'sb_publishable_LdEaPotb0U0XYTMdBfEq_g_0tQcPZZG';
 const { createClient } = supabase;
-const sb = createClient(SUPA_URL, SUPA_KEY);
+const sb = createClient(SUPA_URL, SUPA_KEY, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: false,
+    storage: window.localStorage
+  }
+});
 
 const PRICES = {
   A: { monthly: 99, semi_annual: 534, annual: 948 },
@@ -485,14 +492,20 @@ let existingPlanId = null;
 
 // ── INIT ──
 async function init() {
-  const { data: { session } } = await sb.auth.getSession();
-  document.getElementById('loadingScreen').style.display = 'none';
-  if (session) {
-    currentUser = session.user;
-    await loadProfile();
-    if (currentProfile?.role === 'admin') showApp();
-    else { showAuth(); document.getElementById('authError').textContent = 'Access denied. Admin only.'; }
-  } else showAuth();
+  try {
+    const timer = new Promise(res => setTimeout(() => res({data:{session:null}}), 5000));
+    const {data:{session}} = await Promise.race([sb.auth.getSession(), timer]);
+    document.getElementById('loadingScreen').style.display = 'none';
+    if (session) {
+      currentUser = session.user;
+      await loadProfile();
+      if (currentProfile?.role === 'admin') showApp();
+      else { showAuth(); document.getElementById('authError').textContent = 'Access denied. Admin only.'; }
+    } else showAuth();
+  } catch(e) {
+    document.getElementById('loadingScreen').style.display = 'none';
+    showAuth();
+  }
 }
 
 sb.auth.onAuthStateChange(async (event, session) => {
