@@ -491,20 +491,19 @@ let allExercises = [];
 let existingPlanId = null;
 
 // ── INIT ──
+const ADMIN_EMAIL = 'hussainmoh.wellness@gmail.com';
+
 async function init() {
-  // Always hide loading after 3 seconds no matter what
   setTimeout(() => {
     document.getElementById('loadingScreen').style.display = 'none';
     if (!currentUser) showAuth();
   }, 3000);
-
   try {
     const {data:{session}} = await sb.auth.getSession();
     document.getElementById('loadingScreen').style.display = 'none';
     if (session) {
       currentUser = session.user;
-      await loadProfile();
-      if (currentProfile?.role === 'admin') showApp();
+      if (currentUser.email === ADMIN_EMAIL) { currentProfile = {role:'admin'}; showApp(); }
       else { showAuth(); document.getElementById('authError').textContent = 'Access denied. Admin only.'; }
     } else showAuth();
   } catch(e) {
@@ -514,15 +513,13 @@ async function init() {
 }
 
 sb.auth.onAuthStateChange(async (event, session) => {
+  document.getElementById('loadingScreen').style.display = 'none';
   if (event === 'SIGNED_IN' && session) {
     currentUser = session.user;
-    document.getElementById('loadingScreen').style.display = 'none';
-    await loadProfile();
-    if (currentProfile?.role === 'admin') { hideAuth(); showApp(); }
+    if (currentUser.email === ADMIN_EMAIL) { currentProfile = {role:'admin'}; hideAuth(); showApp(); }
     else { await sb.auth.signOut(); document.getElementById('authError').textContent = 'Access denied. Admin only.'; }
   } else if (event === 'SIGNED_OUT') {
     currentUser = null; currentProfile = null;
-    document.getElementById('loadingScreen').style.display = 'none';
     hideApp(); showAuth();
   }
 });
