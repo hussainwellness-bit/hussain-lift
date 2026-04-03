@@ -230,7 +230,7 @@ body { background: var(--bg); color: var(--text); font-family: 'Syne', sans-seri
 </div>
 
 <!-- AUTH -->
-<div id="authScreen" style="display:none">
+<div id="authScreen" style="display:none;background:var(--bg);min-height:100vh;">
   <div class="auth-logo">HUSSAIN.<em>LIFT</em></div>
   <div class="auth-sub">// Admin Portal</div>
   <div class="auth-box">
@@ -532,7 +532,7 @@ async function loadProfile() {
   currentProfile = data;
 }
 
-function showAuth() { document.getElementById('authScreen').style.display = 'flex'; }
+function showAuth() { document.getElementById('loadingScreen').style.display = 'none'; document.getElementById('authScreen').style.display = 'flex'; }
 function hideAuth() { document.getElementById('authScreen').style.display = 'none'; }
 function showApp() {
   document.getElementById('appScreen').style.display = 'block';
