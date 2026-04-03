@@ -492,9 +492,14 @@ let existingPlanId = null;
 
 // ── INIT ──
 async function init() {
+  // Always hide loading after 3 seconds no matter what
+  setTimeout(() => {
+    document.getElementById('loadingScreen').style.display = 'none';
+    if (!currentUser) showAuth();
+  }, 3000);
+
   try {
-    const timer = new Promise(res => setTimeout(() => res({data:{session:null}}), 5000));
-    const {data:{session}} = await Promise.race([sb.auth.getSession(), timer]);
+    const {data:{session}} = await sb.auth.getSession();
     document.getElementById('loadingScreen').style.display = 'none';
     if (session) {
       currentUser = session.user;
@@ -511,10 +516,15 @@ async function init() {
 sb.auth.onAuthStateChange(async (event, session) => {
   if (event === 'SIGNED_IN' && session) {
     currentUser = session.user;
+    document.getElementById('loadingScreen').style.display = 'none';
     await loadProfile();
     if (currentProfile?.role === 'admin') { hideAuth(); showApp(); }
     else { await sb.auth.signOut(); document.getElementById('authError').textContent = 'Access denied. Admin only.'; }
-  } else if (event === 'SIGNED_OUT') { currentUser = null; currentProfile = null; hideApp(); showAuth(); }
+  } else if (event === 'SIGNED_OUT') {
+    currentUser = null; currentProfile = null;
+    document.getElementById('loadingScreen').style.display = 'none';
+    hideApp(); showAuth();
+  }
 });
 
 async function loadProfile() {
