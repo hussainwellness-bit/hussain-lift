@@ -1289,7 +1289,7 @@ function clientView(view){
   document.querySelectorAll('.client-nav-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById('cview-'+view)?.classList.add('active');
   document.getElementById('cnav-'+view)?.classList.add('active');
-  if(view==='nutrition')renderNutrition();
+  if(view==='nutrition')renderNutrition().catch(e=>console.error(e));
   if(view==='history')renderCalendar();
 }
 
@@ -1340,6 +1340,52 @@ function saveDraft(){
     journal:journalData,
     date:today
   }));
+  // Also save journal to DB automatically (debounced)
+  clearTimeout(window._journalSaveTimer);
+  window._journalSaveTimer=setTimeout(()=>saveJournalToDB(),1500);
+}
+
+async function saveJournalToDB(){
+  if(!currentProfile?.id||!Object.keys(journalData).length)return;
+  const today=new Date().toISOString().split('T')[0];
+  const todayDayIdx=new Date().getDay();
+  let diff=clientDayIdx-todayDayIdx;
+  if(diff>0)diff-=7;
+  const sessionDate=new Date();
+  sessionDate.setDate(sessionDate.getDate()+diff);
+  const loggedAt=sessionDate.toISOString().split('T')[0];
+
+  // Check if session exists for this day
+  const{data:existing}=await sb.from('sessions')
+    .select('id,daily')
+    .eq('user_id',currentProfile.id)
+    .eq('day_index',clientDayIdx)
+    .eq('logged_at',loggedAt)
+    .limit(1);
+
+  if(existing&&existing.length){
+    // Update journal in existing session
+    await sb.from('sessions').update({
+      daily:{...existing[0].daily,...journalData}
+    }).eq('id',existing[0].id);
+  } else {
+    // Create a journal-only session entry
+    const planDay=clientPlanDays.find(d=>d.day_index===clientDayIdx);
+    await sb.from('sessions').insert({
+      user_id:currentProfile.id,
+      day_index:clientDayIdx,
+      day_name:planDay?.day_name||DAYS_OF_WEEK[clientDayIdx],
+      exercises_ordered:[],
+      daily:journalData,
+      logged_at:loggedAt,
+      created_at:new Date().toISOString()
+    }).then(()=>{
+      // Reload sessions silently
+      sb.from('sessions').select('*').eq('user_id',currentProfile.id)
+        .order('created_at',{ascending:false}).limit(100)
+        .then(({data})=>{if(data)allSessions=data;});
+    });
+  }
 }
 
 function safeId(name){return name.replace(/[^a-zA-Z0-9]/g,'_');}
@@ -1382,7 +1428,7 @@ async function renderClientSession(){
           <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
           Save Workout
         </button>
-        <span style="font-family:'DM Mono',monospace;font-size:8px;color:var(--text3)">Journal auto-saves</span>
+        <span id="autoSaveIndicator" style="font-family:'DM Mono',monospace;font-size:8px;color:var(--accent);opacity:0;transition:opacity 0.3s">✓ Auto-saved</span>
       </div>
     </div>
     ${exercises.sort((a,b)=>a.sort_order-b.sort_order).map(pe=>buildExCard(pe,lastSession)).join('')}
@@ -1433,18 +1479,76 @@ function upSet(sid,key,idx,field,val){
   sessionData[key].sets[idx][field]=val;
   const el=document.getElementById((field==='weight'?'w_':'r_')+sid+'_'+idx);
   if(el)el.classList.toggle('filled',!!val);
-  saveDraft();
+  saveDraft();scheduleAutoSave();
 }
 
 function upNotes(key,val){
   if(!sessionData[key])sessionData[key]={sets:[],notes:''};
   sessionData[key].notes=val;saveDraft();
+  scheduleAutoSave();
+}
+
+let autoSaveTimer=null;
+function scheduleAutoSave(){
+  // Auto-save to DB 3 seconds after last change
+  clearTimeout(autoSaveTimer);
+  autoSaveTimer=setTimeout(()=>autoSaveSession(),3000);
+}
+
+async function autoSaveSession(){
+  if(!currentProfile?.id)return;
+  const planDay=clientPlanDays.find(d=>d.day_index===clientDayIdx);
+  if(!planDay||planDay.is_rest)return;
+  const today=new Date();
+  const todayDayIdx=today.getDay();
+  let diff=clientDayIdx-todayDayIdx;
+  if(diff>0)diff-=7;
+  const sessionDate=new Date(today);
+  sessionDate.setDate(today.getDate()+diff);
+  const loggedAt=sessionDate.toISOString().split('T')[0];
+  const exercisesOrdered=(planDay.plan_exercises||[]).map(pe=>({
+    name:pe.exercises?.name||'',
+    sets:sessionData[pe.exercises?.name]?.sets||Array(pe.sets).fill(null).map(()=>({weight:'',reps:'',done:false})),
+    notes:sessionData[pe.exercises?.name]?.notes||''
+  }));
+  // Check if session exists
+  const{data:existing}=await sb.from('sessions')
+    .select('id,exercises_ordered,daily')
+    .eq('user_id',currentProfile.id)
+    .eq('day_index',clientDayIdx)
+    .eq('logged_at',loggedAt)
+    .limit(1);
+  if(existing&&existing.length){
+    const mergedExercises=exercisesOrdered.map(newEx=>{
+      const oldEx=existing[0].exercises_ordered?.find(e=>e.name===newEx.name);
+      if(!oldEx)return newEx;
+      return{...newEx,sets:newEx.sets.map((ns,i)=>{
+        const os=oldEx.sets?.[i]||{};
+        return{weight:ns.weight||os.weight||'',reps:ns.reps||os.reps||'',done:ns.done||os.done||false};
+      }),notes:newEx.notes||oldEx.notes||''};
+    });
+    const mergedJournal={...existing[0].daily,...journalData};
+    await sb.from('sessions').update({exercises_ordered:mergedExercises,daily:mergedJournal,created_at:new Date().toISOString()}).eq('id',existing[0].id);
+  } else {
+    await sb.from('sessions').insert({
+      user_id:currentProfile.id,day_index:clientDayIdx,
+      day_name:planDay?.day_name||DAYS_OF_WEEK[clientDayIdx],
+      exercises_ordered:exercisesOrdered,daily:journalData,
+      logged_at:loggedAt,created_at:new Date().toISOString()
+    }).then(()=>{});
+  }
+  // Update allSessions silently
+  const{data:sessions}=await sb.from('sessions').select('*').eq('user_id',currentProfile.id).order('created_at',{ascending:false}).limit(100);
+  if(sessions)allSessions=sessions;
+  // Show subtle indicator
+  const indicator=document.getElementById('autoSaveIndicator');
+  if(indicator){indicator.style.opacity='1';setTimeout(()=>indicator.style.opacity='0',1500);}
 }
 
 function touchDone(e,sid,key,idx){
   e.preventDefault();e.stopPropagation();
   if(!sessionData[key])sessionData[key]={sets:Array(3).fill(null).map(()=>({weight:'',reps:'',done:false})),notes:''};
-  const s=sessionData[key].sets[idx];s.done=!s.done;saveDraft();
+  const s=sessionData[key].sets[idx];s.done=!s.done;saveDraft();scheduleAutoSave();
   const btn=document.getElementById('chk_'+sid+'_'+idx);
   if(btn){btn.classList.toggle('done',s.done);btn.textContent=s.done?'✓':'○';}
   const card=document.getElementById('exc_'+sid);
@@ -1543,7 +1647,7 @@ function attachJournalListeners(){}
 
 function toggleJournal(e,key){
   e.preventDefault();e.stopPropagation();
-  journalData[key]=!journalData[key];saveDraft();
+  journalData[key]=!journalData[key];saveDraft();scheduleAutoSave();
   const btn=document.getElementById('jbtn-'+key);
   const row=document.getElementById('jrow-'+key);
   const sub=document.getElementById('jsub-'+key);
@@ -1556,7 +1660,7 @@ function setCardioType(e,type){
   e.preventDefault();e.stopPropagation();
   if(!journalData.cardio)journalData.cardio={};
   journalData.cardio.type=journalData.cardio.type===type?'':type;
-  saveDraft();
+  saveDraft();scheduleAutoSave();
   CARDIO_TYPES.forEach(t=>{const el=document.getElementById('ctype-'+t);if(el)el.classList.toggle('selected',journalData.cardio.type===t);});
 }
 
@@ -1564,13 +1668,13 @@ function setCardioDuration(val){
   if(!journalData.cardio)journalData.cardio={};
   journalData.cardio.duration=val;
   const el=document.getElementById('cardio-duration');if(el)el.classList.toggle('filled',!!val);
-  saveDraft();
+  saveDraft();scheduleAutoSave();
 }
 
 function toggleCardio(e){
   e.preventDefault();e.stopPropagation();
   if(!journalData.cardio)journalData.cardio={};
-  journalData.cardio.done=!journalData.cardio.done;saveDraft();
+  journalData.cardio.done=!journalData.cardio.done;saveDraft();scheduleAutoSave();
   const btn=document.getElementById('jbtn-cardio');
   const block=document.getElementById('jrow-cardio');
   if(btn){btn.classList.toggle('done',journalData.cardio.done);btn.textContent=journalData.cardio.done?'✓':'○';}
@@ -1579,20 +1683,20 @@ function toggleCardio(e){
 
 function changeWater(e,delta){
   e.preventDefault();e.stopPropagation();
-  journalData.water=Math.max(0,(journalData.water||0)+delta);saveDraft();
+  journalData.water=Math.max(0,(journalData.water||0)+delta);saveDraft();scheduleAutoSave();
   const el=document.getElementById('water-count');if(el)el.textContent=journalData.water;
   const row=document.getElementById('jrow-water');
   if(row)row.style.cssText=journalData.water>0?'border-color:rgba(61,159,255,0.35);background:rgba(61,159,255,0.04)':'';
 }
 
 function setTodayWeight(val){
-  journalData.todayWeight=val;saveDraft();
+  journalData.todayWeight=val;saveDraft();scheduleAutoSave();
   const el=document.getElementById('today-weight');if(el)el.classList.toggle('filled',!!val);
 }
 
 function setMood(e,mood){
   e.preventDefault();e.stopPropagation();
-  journalData.mood=journalData.mood===mood?'':mood;saveDraft();
+  journalData.mood=journalData.mood===mood?'':mood;saveDraft();scheduleAutoSave();
   MOODS.forEach(m=>{
     const el=document.getElementById('mood-'+m);
     if(el){el.className='mood-btn'+(journalData.mood===m?' selected-'+m.toLowerCase():'');}
