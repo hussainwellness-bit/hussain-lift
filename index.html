@@ -395,6 +395,96 @@ body { background: var(--bg); color: var(--text); font-family: 'Syne', sans-seri
         <div class="field"><label class="field-label">End Date</label><input class="field-input" id="clientEnd" type="date" readonly style="opacity:0.6"></div>
       </div>
       <div class="field"><label class="field-label">Notes (internal)</label><textarea class="field-input field-textarea" id="clientNotes" placeholder="Goals, injuries, preferences..."></textarea></div>
+
+      <div class="divider"></div>
+
+      <!-- BODY GOALS -->
+      <div style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:2px;color:var(--text3);text-transform:uppercase;margin-bottom:12px">// Body Goals</div>
+      <div class="field-row">
+        <div class="field">
+          <label class="field-label">Goal</label>
+          <select class="field-input" id="clientGoal">
+            <option value="">— Select —</option>
+            <option value="cutting">Cutting</option>
+            <option value="bulking">Bulking</option>
+            <option value="maintenance">Maintenance</option>
+            <option value="recomp">Body Recomp</option>
+          </select>
+        </div>
+        <div class="field">
+          <label class="field-label">Starting Weight (kg)</label>
+          <input class="field-input" id="clientWeight" type="number" placeholder="e.g. 85">
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label class="field-label">Target Weight (kg)</label>
+          <input class="field-input" id="clientTargetWeight" type="number" placeholder="e.g. 78">
+        </div>
+        <div class="field">
+          <label class="field-label">Height (cm)</label>
+          <input class="field-input" id="clientHeight" type="number" placeholder="e.g. 178">
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- JOURNAL CONFIG (Plan B & C) -->
+      <div style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:2px;color:var(--text3);text-transform:uppercase;margin-bottom:12px">// Daily Journal (Plan B & C)</div>
+      <div style="background:var(--lift);border:1px solid var(--border2);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:10px">
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+          <input type="checkbox" id="jSteps" checked style="accent-color:var(--accent);width:16px;height:16px">
+          <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text2)">10,000 Steps</span>
+        </label>
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+          <input type="checkbox" id="jCardio" checked style="accent-color:var(--accent);width:16px;height:16px">
+          <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text2)">Cardio (Stairs, Elliptical, Cycling, HIIT, Running, Other)</span>
+        </label>
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+          <input type="checkbox" id="jSleep" checked style="accent-color:var(--accent);width:16px;height:16px">
+          <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text2)">Sleep (7-8 hours)</span>
+        </label>
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+          <input type="checkbox" id="jWater" checked style="accent-color:var(--accent);width:16px;height:16px">
+          <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text2)">Water Intake</span>
+        </label>
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+          <input type="checkbox" id="jWeight" checked style="accent-color:var(--accent);width:16px;height:16px">
+          <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text2)">Daily Weight Check-in</span>
+        </label>
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+          <input type="checkbox" id="jMood" checked style="accent-color:var(--accent);width:16px;height:16px">
+          <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text2)">How do you feel (Normal, Good, Exhausted, Tired, Pumped)</span>
+        </label>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- NUTRITION (Plan C only) -->
+      <div style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:2px;color:var(--text3);text-transform:uppercase;margin-bottom:12px">// Nutrition Targets (Plan C)</div>
+      <div style="background:var(--lift);border:1px solid var(--border2);border-radius:10px;padding:14px">
+        <div class="field-row" style="margin-bottom:12px">
+          <div class="field">
+            <label class="field-label">Daily Calories (kcal)</label>
+            <input class="field-input" id="nutCalories" type="number" placeholder="e.g. 2200">
+          </div>
+          <div class="field">
+            <label class="field-label">Protein (g)</label>
+            <input class="field-input" id="nutProtein" type="number" placeholder="e.g. 180">
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label class="field-label">Carbs (g)</label>
+            <input class="field-input" id="nutCarbs" type="number" placeholder="e.g. 220">
+          </div>
+          <div class="field">
+            <label class="field-label">Fats (g)</label>
+            <input class="field-input" id="nutFats" type="number" placeholder="e.g. 70">
+          </div>
+        </div>
+      </div>
+
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('clientModal')">Cancel</button>
@@ -656,6 +746,9 @@ function openAddClient() {
   document.querySelectorAll('.plan-option').forEach(o => o.className = 'plan-option');
   document.querySelectorAll('.billing-option').forEach(o => o.classList.remove('selected'));
   updateBillingPrices();
+  // Reset new fields
+  ['clientGoal','clientWeight','clientTargetWeight','clientHeight','nutCalories','nutProtein','nutCarbs','nutFats'].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
+  ['jSteps','jCardio','jSleep','jWater','jWeight','jMood'].forEach(id => { const el = document.getElementById(id); if(el) el.checked = true; });
   openModal('clientModal');
 }
 
@@ -677,6 +770,21 @@ async function openEditClient(id) {
   document.querySelectorAll('.billing-option').forEach(o => o.classList.remove('selected'));
   if (selectedBilling) document.getElementById('billOpt-' + selectedBilling)?.classList.add('selected');
   updateBillingPrices();
+  // Populate new fields
+  document.getElementById('clientGoal').value = c.goal || '';
+  document.getElementById('clientWeight').value = c.start_weight || '';
+  document.getElementById('clientTargetWeight').value = c.target_weight || '';
+  document.getElementById('clientHeight').value = c.height || '';
+  const jc = c.journal_config || {};
+  ['steps','cardio','sleep','water','weight','mood'].forEach(k => {
+    const el = document.getElementById('j' + k.charAt(0).toUpperCase() + k.slice(1));
+    if(el) el.checked = jc[k] !== false;
+  });
+  const nt = c.nutrition_targets || {};
+  document.getElementById('nutCalories').value = nt.calories || '';
+  document.getElementById('nutProtein').value = nt.protein || '';
+  document.getElementById('nutCarbs').value = nt.carbs || '';
+  document.getElementById('nutFats').value = nt.fats || '';
   openModal('clientModal');
 }
 
@@ -733,7 +841,25 @@ async function saveClient() {
     plan_end: document.getElementById('clientEnd').value || null,
     notes: document.getElementById('clientNotes').value.trim(),
     is_active: true,
-    role: 'client'
+    role: 'client',
+    goal: document.getElementById('clientGoal').value || null,
+    start_weight: document.getElementById('clientWeight').value ? parseFloat(document.getElementById('clientWeight').value) : null,
+    target_weight: document.getElementById('clientTargetWeight').value ? parseFloat(document.getElementById('clientTargetWeight').value) : null,
+    height: document.getElementById('clientHeight').value ? parseFloat(document.getElementById('clientHeight').value) : null,
+    journal_config: {
+      steps: document.getElementById('jSteps').checked,
+      cardio: document.getElementById('jCardio').checked,
+      sleep: document.getElementById('jSleep').checked,
+      water: document.getElementById('jWater').checked,
+      weight: document.getElementById('jWeight').checked,
+      mood: document.getElementById('jMood').checked
+    },
+    nutrition_targets: selectedPlan === 'C' ? {
+      calories: document.getElementById('nutCalories').value ? parseInt(document.getElementById('nutCalories').value) : null,
+      protein: document.getElementById('nutProtein').value ? parseInt(document.getElementById('nutProtein').value) : null,
+      carbs: document.getElementById('nutCarbs').value ? parseInt(document.getElementById('nutCarbs').value) : null,
+      fats: document.getElementById('nutFats').value ? parseInt(document.getElementById('nutFats').value) : null
+    } : null
   };
 
   let error;
