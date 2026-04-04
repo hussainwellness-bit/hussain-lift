@@ -1800,7 +1800,7 @@ function renderNutrition(){
           <div class="macro-item">
             <div class="macro-label">${m.label} ${m.target?`<span style="color:var(--text3)">/ ${m.target}${m.unit}</span>`:''}</div>
             <input class="macro-input" type="number" inputmode="numeric" id="nut-${m.key}" value="${nd[m.key]||''}" placeholder="0" oninput="updateNutrition('${m.key}',this.value)">
-            <div class="macro-target" id="nut-pct-${m.key}">${m.target&&nd[m.key]?`${pct(nd[m.key],m.target)}% of target`:'Log your intake'}</div>
+            <div class="macro-target" id="nut-pct-${m.key}">${m.target&&nd[m.key]?(()=>{const rem=m.target-parseFloat(nd[m.key]);const u=m.key==='calories'?'kcal':'g';return rem>0?`${rem}${u} remaining`:`${Math.abs(rem)}${u} over target`;})():'Log your intake'}</div>
             ${m.target?`<div class="macro-bar"><div class="macro-bar-fill ${m.color}" id="bar-${m.key}" style="width:${pct(nd[m.key],m.target)}%"></div></div>`:''}
           </div>`).join('')}
       </div>
@@ -1832,7 +1832,13 @@ function updateNutrition(key,val){
   const pctEl=document.getElementById('nut-pct-'+key);
   const pct=target&&val?Math.min(100,Math.round((parseFloat(val)/target)*100)):0;
   if(bar&&target)bar.style.width=pct+'%';
-  if(pctEl&&target)pctEl.textContent=val?`${pct}% of target`:'Log your intake';
+  if(pctEl&&target){
+    const remaining=target-parseFloat(val||0);
+    const unit=key==='calories'?'kcal':'g';
+    if(!val)pctEl.textContent='Log your intake';
+    else if(remaining>0)pctEl.textContent=`${remaining}${unit} remaining`;
+    else pctEl.textContent=`${Math.abs(remaining)}${unit} over target`;
+  }
 }
 
 async function saveNutrition(){
