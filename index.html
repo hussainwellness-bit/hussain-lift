@@ -694,6 +694,14 @@ async function init(){
 
 sb.auth.onAuthStateChange(async(event,session)=>{
   document.getElementById('loadingScreen').style.display='none';
+  // If we're in password recovery mode, don't redirect anywhere
+  if(event==='PASSWORD_RECOVERY'){
+    showAuth();
+    showNewPasswordForm();
+    return;
+  }
+  // Don't override if new password form is visible
+  if(document.getElementById('newPasswordForm').style.display==='block') return;
   if(event==='SIGNED_IN'&&session){currentUser=session.user;await determineRole();}
   else if(event==='SIGNED_OUT'){currentUser=null;currentProfile=null;currentRole=null;hideAll();showAuth();}
 });
