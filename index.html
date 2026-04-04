@@ -1600,15 +1600,52 @@ async function commitSession(){
   sessionDate.setDate(today.getDate()+diff);
   const loggedAt=sessionDate.toISOString().split('T')[0];
 
-  const{error}=await sb.from('sessions').insert({
-    user_id:currentProfile.id,
-    day_index:clientDayIdx,
-    day_name:planDay?.day_name||DAYS_OF_WEEK[clientDayIdx],
-    exercises_ordered:exercisesOrdered,
-    daily:journalData,
-    logged_at:loggedAt,
-    created_at:new Date().toISOString()
-  });
+  // Check if session already exists for this day + date
+  const{data:existing}=await sb.from('sessions')
+    .select('id,exercises_ordered,daily')
+    .eq('user_id',currentProfile.id)
+    .eq('day_index',clientDayIdx)
+    .eq('logged_at',loggedAt)
+    .limit(1);
+
+  let error;
+  if(existing&&existing.length){
+    // Merge existing exercises with new ones — keep sets that were already logged
+    const existingExercises=existing[0].exercises_ordered||[];
+    const mergedExercises=exercisesOrdered.map(newEx=>{
+      const oldEx=existingExercises.find(e=>e.name===newEx.name);
+      if(!oldEx)return newEx;
+      // Merge sets — keep done sets from old, update with new values
+      const mergedSets=newEx.sets.map((newSet,i)=>{
+        const oldSet=oldEx.sets?.[i];
+        if(!oldSet)return newSet;
+        // Keep whichever has more data
+        return{
+          weight:newSet.weight||oldSet.weight||'',
+          reps:newSet.reps||oldSet.reps||'',
+          done:newSet.done||oldSet.done||false
+        };
+      });
+      return{...newEx,sets:mergedSets,notes:newEx.notes||oldEx.notes||''};
+    });
+    // Merge journal — new values override old ones
+    const mergedJournal={...existing[0].daily,...journalData};
+    ({error}=await sb.from('sessions').update({
+      exercises_ordered:mergedExercises,
+      daily:mergedJournal,
+      created_at:new Date().toISOString()
+    }).eq('id',existing[0].id));
+  } else {
+    ({error}=await sb.from('sessions').insert({
+      user_id:currentProfile.id,
+      day_index:clientDayIdx,
+      day_name:planDay?.day_name||DAYS_OF_WEEK[clientDayIdx],
+      exercises_ordered:exercisesOrdered,
+      daily:journalData,
+      logged_at:loggedAt,
+      created_at:new Date().toISOString()
+    }));
+  }
   btn.disabled=false;btn.textContent='Save';
   if(error){showToast('Error: '+error.message,true);return;}
   // Only clear session data, keep journal data visible
@@ -1653,9 +1690,35 @@ function changeMonth(delta){
 }
 
 function showSessionForDate(dateStr){
-  const sessions=allSessions.filter(s=>(s.logged_at?.split('T')[0]||s.created_at?.split('T')[0])===dateStr);
+  const allForDate=allSessions.filter(s=>(s.logged_at?.split('T')[0]||s.created_at?.split('T')[0])===dateStr);
   const area=document.getElementById('sessionDetailArea');
-  if(!sessions.length){area.innerHTML='';return;}
+  if(!allForDate.length){area.innerHTML='';return;}
+  // Group by day_index and merge — show only one card per day
+  const grouped={};
+  allForDate.forEach(s=>{
+    const key=s.day_index??s.day_name;
+    if(!grouped[key]){grouped[key]=s;}
+    else{
+      // Merge exercises
+      const base=grouped[key];
+      const mergedEx=[...base.exercises_ordered||[]];
+      (s.exercises_ordered||[]).forEach(newEx=>{
+        const idx=mergedEx.findIndex(e=>e.name===newEx.name);
+        if(idx===-1)mergedEx.push(newEx);
+        else{
+          mergedEx[idx]={...mergedEx[idx],
+            sets:(newEx.sets||[]).map((ns,i)=>{
+              const os=mergedEx[idx].sets?.[i]||{};
+              return{weight:ns.weight||os.weight||'',reps:ns.reps||os.reps||'',done:ns.done||os.done||false};
+            }),
+            notes:newEx.notes||mergedEx[idx].notes||''
+          };
+        }
+      });
+      grouped[key]={...base,exercises_ordered:mergedEx,daily:{...base.daily,...s.daily}};
+    }
+  });
+  const sessions=Object.values(grouped);
   area.innerHTML=sessions.map(s=>{
     const exList=s.exercises_ordered||[];
     const daily=s.daily||{};
