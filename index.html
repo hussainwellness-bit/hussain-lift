@@ -1061,6 +1061,7 @@ async function openClientDetail(id){
           ${plan?'Edit Plan':'+ Build Plan'}
         </button>
         <button class="btn btn-danger btn-sm" onclick="toggleClientActive('${id}',${c.is_active})">${c.is_active?'Deactivate':'Activate'}</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteClient('${id}','${c.full_name||c.email}')">🗑 Delete</button>
       </div>
     </div>
     ${plan?`
@@ -1086,6 +1087,26 @@ async function toggleClientActive(id,current){
   await sb.from('profiles').update({is_active:!current}).eq('id',id);
   showToast('Client '+(!current?'activated':'deactivated')+' ✓');
   openClientDetail(id);loadDashboard();
+}
+
+async function deleteClient(id,name){
+  if(!confirm(`Delete ${name}? This will permanently remove their profile and all workout plans. This cannot be undone.`))return;
+  // Delete workout plans first
+  const{data:plans}=await sb.from('workout_plans').select('id').eq('client_id',id);
+  if(plans&&plans.length){
+    for(const plan of plans){
+      await sb.from('plan_days').delete().eq('plan_id',plan.id);
+    }
+    await sb.from('workout_plans').delete().eq('client_id',id);
+  }
+  // Delete sessions
+  await sb.from('sessions').delete().eq('user_id',id);
+  // Delete profile
+  const{error}=await sb.from('profiles').delete().eq('id',id);
+  if(error){showToast('Error: '+error.message,true);return;}
+  showToast('Client deleted ✓');
+  adminView('clients');
+  loadDashboard();
 }
 
 async function openPlanBuilder(clientId,planId){
