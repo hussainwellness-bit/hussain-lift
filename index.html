@@ -1021,7 +1021,11 @@ async function saveClient(){
   };
   let error;
   if(editingClientId){({error}=await sb.from('profiles').update(payload).eq('id',editingClientId));}
-  else{({error}=await sb.from('profiles').insert({...payload,id:crypto.randomUUID()}));}
+  else{
+    // Generate a temporary ID — will be replaced with real auth ID when client registers
+    const tempId = 'pending_'+Date.now()+'_'+Math.random().toString(36).slice(2,8);
+    ({error}=await sb.from('profiles').insert({...payload,id:tempId}));
+  }
   btn.disabled=false;btn.textContent='Save Client';
   if(error){showToast('Error: '+error.message,true);return;}
   closeModal('clientModal');showToast(editingClientId?'Client updated ✓':'Client added ✓');
