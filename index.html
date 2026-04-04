@@ -1357,10 +1357,13 @@ async function renderClientSession(){
         <div class="session-title">${planDay.day_name}</div>
         <div class="session-focus" id="progressLabel">${planDay.focus||''} · ${done}/${exercises.length} done</div>
       </div>
-      <button class="save-btn" id="saveBtn" onclick="commitSession()">
-        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-        Save
-      </button>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+        <button class="save-btn" id="saveBtn" onclick="commitSession()">
+          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          Save Workout
+        </button>
+        <span style="font-family:'DM Mono',monospace;font-size:8px;color:var(--text3)">Journal auto-saves</span>
+      </div>
     </div>
     ${exercises.sort((a,b)=>a.sort_order-b.sort_order).map(pe=>buildExCard(pe,lastSession)).join('')}
     ${buildJournalCard()}`;
@@ -1443,7 +1446,7 @@ function buildJournalCard(){
   if(!currentProfile?.plan_type||currentProfile.plan_type==='A')return'';
   const jc=currentProfile.journal_config||{steps:true,cardio:true,sleep:true,water:true,weight:true,mood:true};
   const jd=journalData;
-  let html='<div class="journal-card"><div class="journal-header"><span class="journal-title">// Daily Goals</span></div><div class="journal-body">';
+  let html='<div class="journal-card"><div class="journal-header" style="justify-content:space-between"><span class="journal-title">// Daily Goals</span><span style="font-family:\'DM Mono\',monospace;font-size:8px;color:var(--text3);letter-spacing:1px">AUTO-SAVED</span></div><div class="journal-body">';
 
   if(jc.steps){
     html+=`<div class="check-row ${jd.steps?'checked':''}" id="jrow-steps">
@@ -1587,13 +1590,23 @@ async function commitSession(){
     sets:sessionData[pe.exercises?.name]?.sets||Array(pe.sets).fill(null).map(()=>({weight:'',reps:'',done:false})),
     notes:sessionData[pe.exercises?.name]?.notes||''
   })):[];
+  // Calculate the actual date for the selected day
+  const today=new Date();
+  const todayDayIdx=today.getDay();
+  let diff=clientDayIdx-todayDayIdx;
+  // If selected day is in the future this week, go back a week
+  if(diff>0) diff-=7;
+  const sessionDate=new Date(today);
+  sessionDate.setDate(today.getDate()+diff);
+  const loggedAt=sessionDate.toISOString().split('T')[0];
+
   const{error}=await sb.from('sessions').insert({
     user_id:currentProfile.id,
     day_index:clientDayIdx,
     day_name:planDay?.day_name||DAYS_OF_WEEK[clientDayIdx],
     exercises_ordered:exercisesOrdered,
     daily:journalData,
-    logged_at:new Date().toISOString().split('T')[0],
+    logged_at:loggedAt,
     created_at:new Date().toISOString()
   });
   btn.disabled=false;btn.textContent='Save';
@@ -1660,27 +1673,52 @@ function renderNutrition(){
   const today=new Date().toISOString().split('T')[0];
   const raw=localStorage.getItem(`nutrition_${currentProfile?.id}_${today}`);
   const nd=raw?JSON.parse(raw):{calories:'',protein:'',carbs:'',fats:''};
+  function pct(val,target){if(!target||!val)return 0;return Math.min(100,Math.round((parseFloat(val)/target)*100));}
 
-  function pct(val,target){if(!target||!val)return 0;return Math.min(100,Math.round((val/target)*100));}
+  const macros=[
+    {key:'calories',label:'Calories',unit:'kcal',target:nt.calories,color:'calories'},
+    {key:'protein',label:'Protein',unit:'g',target:nt.protein,color:'protein'},
+    {key:'carbs',label:'Carbs',unit:'g',target:nt.carbs,color:'carbs'},
+    {key:'fats',label:'Fats',unit:'g',target:nt.fats,color:'fats'}
+  ];
 
   area.innerHTML=`
     <div style="font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:2px;color:var(--text);margin-bottom:4px">Today's Nutrition</div>
     <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--text3);letter-spacing:2px;margin-bottom:16px">${new Date().toLocaleDateString('en-GB',{weekday:'long',day:'2-digit',month:'long'})}</div>
+
+    <!-- TARGETS OVERVIEW -->
+    <div class="nutrition-card" style="margin-bottom:14px">
+      <div class="journal-header"><span class="journal-title">// Daily Targets</span></div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:14px">
+        ${macros.map(m=>`
+          <div style="text-align:center;background:var(--lift);border-radius:10px;padding:12px 8px;border:1px solid var(--border2)">
+            <div style="font-family:'DM Mono',monospace;font-size:8px;color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">${m.label}</div>
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--accent);letter-spacing:1px">${m.target||'—'}</div>
+            <div style="font-family:'DM Mono',monospace;font-size:8px;color:var(--text3)">${m.unit}</div>
+          </div>`).join('')}
+      </div>
+    </div>
+
+    <!-- DAILY LOG -->
     <div class="nutrition-card">
-      <div class="journal-header"><span class="journal-title">// Log your macros</span></div>
+      <div class="journal-header" style="justify-content:space-between">
+        <span class="journal-title">// Today's Intake</span>
+        <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--text3)">${today}</span>
+      </div>
       <div class="macro-grid">
-        ${[
-          {key:'calories',label:'Calories',unit:'kcal',target:nt.calories,color:'calories'},
-          {key:'protein',label:'Protein',unit:'g',target:nt.protein,color:'protein'},
-          {key:'carbs',label:'Carbs',unit:'g',target:nt.carbs,color:'carbs'},
-          {key:'fats',label:'Fats',unit:'g',target:nt.fats,color:'fats'}
-        ].map(m=>`
+        ${macros.map(m=>`
           <div class="macro-item">
-            <div class="macro-label">${m.label}</div>
+            <div class="macro-label">${m.label} ${m.target?`<span style="color:var(--text3)">/ ${m.target}${m.unit}</span>`:''}</div>
             <input class="macro-input" type="number" inputmode="numeric" id="nut-${m.key}" value="${nd[m.key]||''}" placeholder="0" oninput="updateNutrition('${m.key}',this.value)">
-            <div class="macro-target">${m.target?`Target: ${m.target} ${m.unit}`:'No target set'}</div>
+            <div class="macro-target" id="nut-pct-${m.key}">${m.target&&nd[m.key]?`${pct(nd[m.key],m.target)}% of target`:'Log your intake'}</div>
             ${m.target?`<div class="macro-bar"><div class="macro-bar-fill ${m.color}" id="bar-${m.key}" style="width:${pct(nd[m.key],m.target)}%"></div></div>`:''}
           </div>`).join('')}
+      </div>
+      <div style="padding:0 16px 16px">
+        <button class="save-btn" style="width:100%;justify-content:center" onclick="saveNutrition()">
+          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          Save Nutrition Log
+        </button>
       </div>
     </div>`;
 }
@@ -1694,7 +1732,33 @@ function updateNutrition(key,val){
   const nt=currentProfile?.nutrition_targets||{};
   const target=nt[key];
   const bar=document.getElementById('bar-'+key);
-  if(bar&&target)bar.style.width=Math.min(100,Math.round((val/target)*100))+'%';
+  const pctEl=document.getElementById('nut-pct-'+key);
+  const pct=target&&val?Math.min(100,Math.round((parseFloat(val)/target)*100)):0;
+  if(bar&&target)bar.style.width=pct+'%';
+  if(pctEl&&target)pctEl.textContent=val?`${pct}% of target`:'Log your intake';
+}
+
+async function saveNutrition(){
+  if(!currentProfile?.id)return;
+  const today=new Date().toISOString().split('T')[0];
+  const raw=localStorage.getItem(`nutrition_${currentProfile?.id}_${today}`);
+  const nd=raw?JSON.parse(raw):{};
+  // Save to sessions table as a nutrition log
+  const{error}=await sb.from('sessions').upsert({
+    user_id:currentProfile.id,
+    day_index:new Date().getDay(),
+    day_name:'Nutrition Log',
+    exercises_ordered:[],
+    daily:{...nd, type:'nutrition'},
+    logged_at:today,
+    created_at:new Date().toISOString()
+  },{onConflict:'user_id,logged_at,day_name'});
+  if(error){
+    // If upsert fails, just confirm local save
+    showToast('Saved locally ✓');
+    return;
+  }
+  showToast('Nutrition saved ✓');
 }
 
 // ── SHARED ──
